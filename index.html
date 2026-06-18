@@ -785,17 +785,11 @@ function openEmail(gmailId, messageId) {
   const webUrl = "https://mail.google.com/mail/u/0/#all/" + gmailId;
 
   if (isIOS() && messageId) {
+    // Trust the message:// scheme on iOS — Mail intercepts it reliably.
+    // No fallback timer here: that was racing against the app-switch
+    // and leaving a stray Gmail tab open in Safari after returning.
     const mailUrl = "message://" + encodeURIComponent("<" + messageId + ">");
-    // Attempt the message:// scheme; if Mail doesn't intercept it within
-    // a short window, fall back to Gmail web so the link never dead-ends.
-    let appOpened = false;
-    const onBlur = () => { appOpened = true; };
-    window.addEventListener("blur", onBlur, { once: true });
     window.location.href = mailUrl;
-    setTimeout(() => {
-      window.removeEventListener("blur", onBlur);
-      if (!appOpened) window.open(webUrl, "_blank", "noopener");
-    }, 800);
   } else {
     // Mac / desktop / no Message-ID available — standard Gmail web link
     window.open(webUrl, "_blank", "noopener");
