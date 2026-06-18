@@ -527,7 +527,6 @@ window.addEventListener("DOMContentLoaded", () => {
   const savedUrl = localStorage.getItem(STORAGE_KEY_URL);
   if (savedUrl) {
     document.getElementById("csvUrlInput").value = savedUrl;
-    document.getElementById("configBanner").style.display = "none";
     loadCachedThenSync(savedUrl);
   } else {
     updateSyncStatus("idle", "Not configured");
@@ -535,7 +534,11 @@ window.addEventListener("DOMContentLoaded", () => {
   updateProgress();
 });
 
-window.addEventListener("online",  () => showToast("📶 Back online"));
+window.addEventListener("online",  () => {
+  showToast("📶 Back online");
+  const savedUrl = localStorage.getItem(STORAGE_KEY_URL);
+  if (savedUrl) syncData();
+});
 window.addEventListener("offline", () => showToast("📵 Offline — showing cached data"));
 
 // ── CONFIG ─────────────────────────────────────────────────
@@ -546,7 +549,6 @@ function saveConfig() {
     return;
   }
   localStorage.setItem(STORAGE_KEY_URL, url);
-  document.getElementById("configBanner").style.display = "none";
   syncData();
 }
 
@@ -556,6 +558,7 @@ function loadCachedThenSync(url) {
   const ts     = localStorage.getItem(STORAGE_KEY_TS);
   if (cached) {
     bookings = JSON.parse(cached);
+    document.getElementById("configBanner").style.display = "none";
     renderAll();
     const ago = ts ? timeSince(new Date(ts)) : "a while";
     updateSyncStatus("online", `Cached · ${ago} ago`);
@@ -574,16 +577,25 @@ async function syncData() {
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const text = await resp.text();
     bookings = parseCSV(text);
+    
+    // Only hide banner on an absolute successful sync
+    document.getElementById("configBanner").style.display = "none";
+    
     localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(bookings));
     localStorage.setItem(STORAGE_KEY_TS,   new Date().toISOString());
     renderAll();
     updateSyncStatus("online", `Synced · just now`);
     showToast(`✅ Loaded ${bookings.length} bookings`);
   } catch (e) {
+    console.error(e);
     const cached = localStorage.getItem(STORAGE_KEY_DATA);
     updateSyncStatus("idle", navigator.onLine ? "Sync failed" : "Offline");
     showToast(navigator.onLine ? `❌ Sync failed: ${e.message}` : "📵 Offline — cached data shown");
-    if (cached && bookings.length === 0) { bookings = JSON.parse(cached); renderAll(); }
+    if (cached) {
+      bookings = JSON.parse(cached);
+      document.getElementById("configBanner").style.display = "none";
+      renderAll();
+    }
   }
 }
 
@@ -639,7 +651,6 @@ function renderAll() {
 // ── OVERVIEW ───────────────────────────────────────────────
 function renderOverview() {
   updateProgress();
-  // Summary cards
   const ferries      = bookings.filter(b => b.type === "Ferry").length;
   const campsites    = bookings.filter(b => b.type === "Campsite").length;
   const activities   = bookings.filter(b => b.type === "Activity").length;
@@ -654,7 +665,6 @@ function renderOverview() {
     <div class="summary-card"><div class="summary-num">${bookings.length}</div><div class="summary-lbl">Total bookings</div></div>
   `;
 
-  // Upcoming payments
   const payments = bookings
     .filter(b => b.amountDue > 0 && b.paymentDue)
     .sort((a, b) => new Date(a.paymentDue) - new Date(b.paymentDue));
@@ -696,6 +706,7 @@ function updateProgress() {
 // ── TIMELINE ───────────────────────────────────────────────
 function renderTimeline() {
   const container = document.getElementById("timelineContainer");
+  if (!container) return;
   const days = buildDayMap();
 
   if (bookings.length === 0) {
@@ -727,4 +738,220 @@ function renderTimeline() {
             const gmailLink = e.id ? `<br><a href="https://mail.google.com/mail/u/0/#inbox/${e.id}" target="_blank" class="gmail-link">✉️ View Original Email</a>` : "";
             return `
             <div class="event-card ${e.type}">
-              <span class="event-icon">${TYPE_ICONS[e.type]
+              <span class="event-icon">${TYPE_ICONS[e.type]||"📋"}</span>
+              <div class="event-body">
+                <div class="event-title">${e.provider} <span class="type-badge ${e.type}">${e.type}</span></div>
+                <div class="event-meta">
+                  ${e.checkin  ? `<span>Check-in ${e.checkin}</span>` : ""}
+                  ${e.checkout ? `<span>Check-out ${e.checkout}</span>` : ""}
+                  ${e.locationFrom ? `<span>From ${e.locationFrom}</span>` : ""}
+                  ${e.locationTo   ? `<span>To ${e.locationTo}</span>` : ""}
+                  ${e.amountPaid > 0 ? `<span>Paid £${e.amountPaid.toFixed(2)}</span>` : ""}
+                  ${e.amountDue  > 0 ? `<span style="color:var(--alert)">Due £${e.amountDue.toFixed(2)}</span>` : ""}
+                </div>
+                ${e.notes ? `<div style="font-size:0.78rem;color:var(--ink-mid);margin-top:4px">${e.notes}</div>` : ""}
+                ${e.ref ? `<div class="event-ref">Ref: ${e.ref}</div>` : ""}
+                ${gmailLink}
+              </div>
+            </div>`}).join("")}
+      </div>
+    </div>`;
+  }
+  container.innerHTML = html;
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (today >= TRIP_START && today <= TRIP_END) {
+    const el = document.getElementById("day-" + dateKey(today));
+    if (el) { el.classList.add("open"); el.scrollIntoView({ behavior: "smooth", block: "start" }); }
+  }
+}
+
+function toggleDay(id) {
+  document.getElementById(id)?.classList.toggle("open");
+}
+
+function buildDayMap() {
+  const map = {};
+  for (const b of bookings) {
+    if (!b.dateFrom) continue;
+    const from = new Date(b.dateFrom);
+    const to   = b.dateTo ? new Date(b.dateTo) : new Date(b.dateFrom);
+    for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
+      const key = dateKey(d);
+      if (!map[key]) map[key] = [];
+      if (dateKey(d) === dateKey(from) || !map[dateKey(from)]) map[key].push(b);
+    }
+  }
+  return map;
+}
+
+// ── CALENDAR VIEW ──────────────────────────────────────────
+function renderCalendar() {
+  const container = document.getElementById("calendarContainer");
+  if (!container) return;
+  const dayMap = buildDayMap();
+  const months = [6, 7]; 
+  const year = 2026;
+  const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+  let html = "";
+  for (const month of months) {
+    const monthName = new Date(year, month, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+    html += `<div class="cal-month-title">${monthName}</div><div class="cal-grid">`;
+    DOW.forEach(d => { html += `<div class="cal-dow">${d}</div>`; });
+    const firstDay = new Date(year, month, 1).getDay();
+    for (let i = 0; i < firstDay; i++) html += `<div class="cal-day empty"></div>`;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = new Date(); today.setHours(0,0,0,0);
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d   = new Date(year, month, day);
+      const key = dateKey(d);
+      const events   = dayMap[key] || [];
+      const isToday  = d.getTime() === today.getTime();
+      const isTripDay = d >= TRIP_START && d <= TRIP_END;
+      
+      const pills = events.slice(0, 3).map(e => {
+        const icon = TYPE_ICONS[e.type] || "📋";
+        return `<div class="cal-pill ${e.type}" onclick="navigateToTimelineDay('day-${key}')" title="${e.provider}">
+          ${icon} ${e.provider}
+        </div>`;
+      }).join("");
+
+      html += `<div class="cal-day${isToday ? " today" : ""}${isTripDay ? " trip-day" : ""}">
+        <div class="cal-day-num">${day}</div>
+        <div style="display:flex; flex-direction:column; gap:2px; overflow:hidden;">${pills}</div>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+  container.innerHTML = html;
+}
+
+function navigateToTimelineDay(dayId) {
+  switchTab('timeline');
+  setTimeout(() => {
+    const el = document.getElementById(dayId);
+    if (el) {
+      el.classList.add("open");
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, 60);
+}
+
+// ── BOOKINGS LIST ──────────────────────────────────────────
+function renderBookings() {
+  const container = document.getElementById("bookingsContainer");
+  if (!container) return;
+  const filtered = currentFilter === "All" ? bookings : bookings.filter(b => b.type === currentFilter);
+  const sorted   = [...filtered].sort((a, b) => (a.dateFrom || "").localeCompare(b.dateFrom || ""));
+
+  if (sorted.length === 0) {
+    container.innerHTML = emptyState("No bookings", currentFilter === "All" ? "Connect your Google Sheet to see bookings." : `No ${currentFilter} bookings yet.`);
+    return;
+  }
+
+  container.innerHTML = sorted.map(b => {
+    const gmailLink = b.id ? `<div style="grid-column: 1 / -1;"><a href="https://mail.google.com/mail/u/0/#inbox/${b.id}" target="_blank" class="gmail-link">✉️ View Original Email</a></div>` : "";
+    return `
+    <div class="booking-card ${b.type}">
+      <div>
+        <span class="type-badge ${b.type}">${b.type}</span>
+        <span class="booking-provider" style="margin-left:8px">${b.provider}</span>
+      </div>
+      <div class="booking-amounts">
+        ${b.amountPaid > 0 ? `<div class="paid">£${b.amountPaid.toFixed(2)} paid</div>` : ""}
+        ${b.amountDue  > 0 ? `<div class="due">£${b.amountDue.toFixed(2)} due</div>` : ""}
+      </div>
+      <div class="booking-dates">
+        ${fmtDate(b.dateFrom)}${b.dateTo && b.dateTo !== b.dateFrom ? ` → ${fmtDate(b.dateTo)}` : ""}
+        ${b.checkin ? ` · in ${b.checkin}` : ""}${b.checkout ? ` / out ${b.checkout}` : ""}
+        ${b.locationFrom || b.locationTo ? `<br>${b.locationFrom || ""}${b.locationTo ? ` → ${b.locationTo}` : ""}` : ""}
+      </div>
+      ${b.ref   ? `<div class="booking-ref">Ref: ${b.ref}</div>` : ""}
+      ${b.notes ? `<div style="font-size:0.78rem;color:var(--ink-mid);margin-top:4px;grid-column:1/-1">${b.notes}</div>` : ""}
+      ${gmailLink}
+    </div>
+  `}).join("");
+}
+
+function filterBookings(type, btn) {
+  currentFilter = type;
+  document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  renderBookings();
+}
+
+// ── TABS ───────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  
+  const targetView = document.getElementById("view-" + name);
+  if (targetView) targetView.classList.add("active");
+  
+  const labelMap = { 'overview': 'overview', 'timeline': 'day by day', 'calendar': 'calendar', 'bookings': 'all bookings' };
+  const targetLabel = labelMap[name] || name;
+  
+  document.querySelectorAll(".tab").forEach(t => {
+    if (t.textContent.toLowerCase().trim() === targetLabel) {
+      t.classList.add("active");
+    }
+  });
+}
+
+// ── DEMO DATA ──────────────────────────────────────────────
+function loadDemoData() {
+  bookings = [
+    { id:"1", type:"Ferry",       provider:"Brittany Ferries",    ref:"BF123456", dateFrom:"2026-07-23", dateTo:"2026-07-24", checkin:"17:00", checkout:"",      locationFrom:"Santander",    locationTo:"Portsmouth",  amountPaid:180, amountDue:0,   paymentDue:"",           notes:"Overnight crossing, cabin booked" },
+    { id:"2", type:"Campsite",    provider:"Loch Ness Camping",   ref:"LNC789",   dateFrom:"2026-07-28", dateTo:"2026-07-30", checkin:"12:00", checkout:"11:00", locationFrom:"",             locationTo:"Drumnadrochit",amountPaid:45,  amountDue:45,  paymentDue:"2026-07-01", notes:"Electric hookup pitch" },
+    { id:"3", type:"Activity",    provider:"Jacobite Steam Train", ref:"JST001",   dateFrom:"2026-07-31", dateTo:"2026-07-31", checkin:"10:30", checkout:"",      locationFrom:"Fort William", locationTo:"Mallaig",     amountPaid:60,  amountDue:0,   paymentDue:"",           notes:"Harry Potter viaduct route" },
+    { id:"4", type:"Ferry",       provider:"Caledonian MacBrayne", ref:"CALMAC22", dateFrom:"2026-08-03", dateTo:"2026-08-03", checkin:"08:00", checkout:"",      locationFrom:"Oban",         locationTo:"Craignure",   amountPaid:35,  amountDue:0,   paymentDue:"",           notes:"Mull crossing" },
+    { id:"5", type:"Campsite",    provider:"Glen Nevis Campsite",  ref:"GNV55",    dateFrom:"2026-08-05", dateTo:"2026-08-07", checkin:"13:00", checkout:"11:00", locationFrom:"",             locationTo:"Fort William",amountPaid:0,   amountDue:72,  paymentDue:"2026-07-15", notes:"Near Ben Nevis trailhead" },
+  ];
+  localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(bookings));
+  document.getElementById("configBanner").style.display = "none";
+  renderAll();
+  showToast("📍 Demo data loaded");
+}
+
+// ── UTILS ──────────────────────────────────────────────────
+function dateKey(d) { return d.toISOString().slice(0,10); }
+
+function fmtDate(s) {
+  if (!s) return "";
+  const d = new Date(s + "T12:00:00");
+  return isNaN(d) ? s : d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+function timeSince(date) {
+  const secs = Math.floor((new Date() - date) / 1000);
+  if (secs < 60)   return `${secs}s`;
+  if (secs < 3600) return `${Math.floor(secs/60)}m`;
+  return `${Math.floor(secs/3600)}h`;
+}
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 3000);
+}
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js").catch(e => console.warn("SW:", e));
+}
+
+function updateSyncStatus(state, label) {
+  const dot = document.getElementById("syncDot");
+  const lbl = document.getElementById("syncLabel");
+  if (dot) dot.className = "sync-dot " + state;
+  if (lbl) lbl.textContent = label;
+}
+
+function emptyState(title, body) {
+  return `<div class="empty-state"><div class="big">🗺</div><strong>${title}</strong><p>${body}</p></div>`;
+}
+</script>
+</body>
+</html>
