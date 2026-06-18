@@ -3,7 +3,7 @@
 // Caches the app shell for offline use.
 // ============================================================
 
-const CACHE_NAME = "si2026-v1";
+const CACHE_NAME = "si2026-v2";
 const SHELL_FILES = [
   "./",
   "./index.html",
