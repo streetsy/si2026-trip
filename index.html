@@ -774,12 +774,19 @@ function buildDayMap() {
   const map = {};
   for (const b of bookings) {
     if (!b.dateFrom) continue;
-    const from = new Date(b.dateFrom);
-    const to   = b.dateTo ? new Date(b.dateTo) : new Date(b.dateFrom);
+    
+    const partsFrom = b.dateFrom.split('-');
+    const from = new Date(partsFrom[0], partsFrom[1] - 1, partsFrom[2]);
+    
+    const partsTo = b.dateTo ? b.dateTo.split('-') : partsFrom;
+    const to = new Date(partsTo[0], partsTo[1] - 1, partsTo[2]);
+    
     for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
       const key = dateKey(d);
       if (!map[key]) map[key] = [];
-      if (dateKey(d) === dateKey(from) || !map[dateKey(from)]) map[key].push(b);
+      if (dateKey(d) === dateKey(from) || !map[dateKey(from)]) {
+        map[key].push(b);
+      }
     }
   }
   return map;
@@ -915,11 +922,17 @@ function loadDemoData() {
 }
 
 // ── UTILS ──────────────────────────────────────────────────
-function dateKey(d) { return d.toISOString().slice(0,10); }
+function dateKey(d) { 
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`; 
+}
 
 function fmtDate(s) {
   if (!s) return "";
-  const d = new Date(s + "T12:00:00");
+  const parts = s.split('-');
+  const d = new Date(parts[0], parts[1] - 1, parts[2]);
   return isNaN(d) ? s : d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
