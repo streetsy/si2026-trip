@@ -44,6 +44,7 @@
     color: var(--ink);
     min-height: 100vh;
     overscroll-behavior: none;
+    overflow-x: hidden;
   }
 
   /* ── HEADER ── */
@@ -82,6 +83,18 @@
   .sync-dot.syncing { background: #ffd740; animation: pulse 1s infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
+  .reset-btn {
+    width: 30px; height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.3);
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .reset-btn:hover { background: rgba(255,255,255,0.15); }
+
   /* ── NAV ── */
   nav {
     background: #fff;
@@ -111,7 +124,7 @@
   .tab:hover:not(.active) { color: var(--ink); }
 
   /* ── MAIN ── */
-  main { max-width: 860px; margin: 0 auto; padding: 20px 14px 80px; }
+  main { max-width: 860px; margin: 0 auto; padding: 20px 14px 80px; overflow-x: hidden; width: 100%; }
   .view { display: none; }
   .view.active { display: block; }
 
@@ -238,12 +251,13 @@
 
   /* ── CALENDAR ── */
   .cal-month-title { font-size: 1rem; font-weight: 700; margin: 18px 0 10px; color: var(--ink); }
-  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 24px; }
-  .cal-dow { text-align: center; font-family: var(--mono); font-size: 0.62rem; color: var(--ink-light); text-transform: uppercase; padding-bottom: 5px; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin-bottom: 24px; width: 100%; }
+  .cal-dow { text-align: center; font-family: var(--mono); font-size: 0.62rem; color: var(--ink-light); text-transform: uppercase; padding-bottom: 5px; min-width: 0; }
   .cal-day {
     background: var(--card-bg); border-radius: 8px; min-height: 62px;
     padding: 6px 5px; font-size: 0.7rem; box-shadow: var(--shadow);
     cursor: default; transition: box-shadow 0.15s;
+    min-width: 0; overflow: hidden;
   }
   .cal-day.has-events { cursor: pointer; }
   .cal-day.has-events:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.14); }
@@ -339,9 +353,12 @@
 
 <header>
   <div class="header-title"><span class="flag">⛰️</span> Scotland &amp; Ireland 2026</div>
-  <div class="sync-status" onclick="syncData()" title="Tap to refresh">
-    <div class="sync-dot" id="syncDot"></div>
-    <span id="syncLabel">Tap to load</span>
+  <div style="display:flex;align-items:center;gap:8px">
+    <div class="sync-status" onclick="syncData()" title="Tap to refresh">
+      <div class="sync-dot" id="syncDot"></div>
+      <span id="syncLabel">Tap to load</span>
+    </div>
+    <div class="reset-btn" onclick="resetConnection()" title="Change Google Sheet connection">⚙️</div>
   </div>
 </header>
 
@@ -444,6 +461,16 @@ function saveConfig() {
   syncData();
 }
 
+function resetConnection() {
+  if (!confirm("Disconnect this app from your current Google Sheet?\n\nYour cached bookings will stay visible until you connect a new sheet and sync.")) return;
+  localStorage.removeItem(STORAGE_KEY_URL);
+  document.getElementById("csvUrlInput").value = "";
+  document.getElementById("configBanner").style.display = "block";
+  updateSyncStatus("idle", "Not configured");
+  showToast("🔌 Disconnected — paste a new Sheet URL above");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
 // ── DATA ──
 function loadCachedThenSync(url) {
   const cached = localStorage.getItem(STORAGE_KEY_DATA);
@@ -489,6 +516,7 @@ function parseCSV(text) {
     headers.forEach((h,i) => o[h.trim()] = (vals[i]||"").trim());
     return {
       id:           o["Email ID"]          || "",
+      messageId:    o["Message ID"]        || "",
       type:         o["Type"]              || "Other",
       provider:     o["Provider"]          || "Unknown",
       ref:          o["Booking Ref"]       || "",
@@ -594,7 +622,7 @@ function renderTimeline() {
                 </div>
                 ${e.notes?`<div class="event-notes">${e.notes}</div>`:""}
                 ${e.ref?`<div class="event-ref">Ref: ${e.ref}</div>`:""}
-                ${e.id?`<a class="email-link" href="#" onclick="openEmail('${e.id}');return false;">✉️ View email</a>`:""}
+                ${e.id?`<a class="email-link" href="#" onclick="openEmail('${e.id}','${(e.messageId||'').replace(/'/g,"\\'")}');return false;">✉️ View email</a>`:""}
               </div>
             </div>`).join("")}
       </div>
@@ -650,7 +678,7 @@ function renderCalendar(){
       const hasEvents=events.length>0;
       // Build pills — max 3 shown
       const pills=events.slice(0,3).map(e=>{
-        const label=e.provider.length>12?e.provider.slice(0,11)+"…":e.provider;
+        const label=e.provider.length>8?e.provider.slice(0,7)+"…":e.provider;
         return `<div class="cal-pill ${e.type}"><span class="cal-pill-icon">${TYPE_ICONS[e.type]||"📋"}</span>${label}</div>`;
       }).join("");
       const clickAttr=hasEvents?`onclick="calDayClick('${key}')" title="Go to ${d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})}"` :"";
@@ -695,7 +723,7 @@ function renderBookings(){
       </div>
       ${b.ref?`<div class="booking-ref">Ref: ${b.ref}</div>`:""}
       ${b.notes?`<div style="font-size:0.78rem;color:var(--ink-mid);margin-top:5px;grid-column:1/-1">${b.notes}</div>`:""}
-      ${b.id?`<div style="grid-column:1/-1"><a class="email-link" href="#" onclick="openEmail('${b.id}');return false;">✉️ View original email</a></div>`:""}
+      ${b.id?`<div style="grid-column:1/-1"><a class="email-link" href="#" onclick="openEmail('${b.id}','${(b.messageId||'').replace(/'/g,"\\'")}');return false;">✉️ View original email</a></div>`:""}
     </div>`).join("");
 }
 
@@ -733,7 +761,7 @@ function loadDemoData(){
 }
 
 // ── UTILS ──
-function dateKey(d){return d.toISOString().slice(0,10);}
+function dateKey(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");return y+"-"+m+"-"+day;}
 function fmtDate(s){if(!s)return"";const d=new Date(s+"T12:00:00");return isNaN(d)?s:d.toLocaleDateString("en-GB",{day:"numeric",month:"short"});}
 function timeSince(date){const s=Math.floor((new Date()-date)/1000);if(s<60)return s+"s";if(s<3600)return Math.floor(s/60)+"m";return Math.floor(s/3600)+"h";}
 function showToast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),3200);}
@@ -741,18 +769,37 @@ function updateSyncStatus(state,label){document.getElementById("syncDot").classN
 function emptyState(title,body){return`<div class="empty-state"><div class="big">🗺️</div><strong>${title}</strong><p>${body}</p></div>`;}
 
 // ── EMAIL LINKS ──
-// Tries Gmail app URL scheme first, falls back to Gmail web.
-function openEmail(id) {
-  const appUrl = "googlegmail://gmail/mail/u/0/#all/" + id;
-  const webUrl = "https://mail.google.com/mail/u/0/#all/" + id;
-  let appOpened = false;
-  const onBlur = () => { appOpened = true; };
-  window.addEventListener("blur", onBlur, { once: true });
-  window.location.href = appUrl;
-  setTimeout(() => {
-    window.removeEventListener("blur", onBlur);
-    if (!appOpened) window.open(webUrl, "_blank", "noopener");
-  }, 800);
+// iOS (iPhone/iPad): uses the message:// URL scheme to open the exact
+//   message directly in Apple Mail (requires the account's Gmail inbox
+//   to be set up in Apple Mail, and a valid RFC822 Message-ID).
+// Everything else (Mac, Windows, Android, etc): opens Gmail web in a
+//   new tab using the Gmail internal message ID — works in any browser
+//   the user is logged into Gmail with.
+function isIOS() {
+  const ua = navigator.userAgent || "";
+  // Covers iPhone/iPad/iPod, and iPadOS 13+ which reports as "MacIntel" but has touch support
+  return /iPad|iPhone|iPod/.test(ua) || (ua.includes("Macintosh") && navigator.maxTouchPoints > 1);
+}
+
+function openEmail(gmailId, messageId) {
+  const webUrl = "https://mail.google.com/mail/u/0/#all/" + gmailId;
+
+  if (isIOS() && messageId) {
+    const mailUrl = "message://" + encodeURIComponent("<" + messageId + ">");
+    // Attempt the message:// scheme; if Mail doesn't intercept it within
+    // a short window, fall back to Gmail web so the link never dead-ends.
+    let appOpened = false;
+    const onBlur = () => { appOpened = true; };
+    window.addEventListener("blur", onBlur, { once: true });
+    window.location.href = mailUrl;
+    setTimeout(() => {
+      window.removeEventListener("blur", onBlur);
+      if (!appOpened) window.open(webUrl, "_blank", "noopener");
+    }, 800);
+  } else {
+    // Mac / desktop / no Message-ID available — standard Gmail web link
+    window.open(webUrl, "_blank", "noopener");
+  }
 }
 
 if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(e=>console.warn("SW:",e));}
