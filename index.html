@@ -610,12 +610,13 @@ function renderTimeline() {
 
 function toggleDay(id){document.getElementById(id)?.classList.toggle("open");}
 
+function parseLocalDate(s){if(!s)return null;const p=s.split("-").map(Number);return new Date(p[0],p[1]-1,p[2],12,0,0);}
 function buildDayMap(){
   const map={};
   for(const b of bookings){
     if(!b.dateFrom) continue;
-    const from=new Date(b.dateFrom);
-    const to=b.dateTo?new Date(b.dateTo):new Date(b.dateFrom);
+    const from=parseLocalDate(b.dateFrom);
+    const to=b.dateTo?parseLocalDate(b.dateTo):parseLocalDate(b.dateFrom);if(!from||!to)continue;
     for(let d=new Date(from);d<=to;d.setDate(d.getDate()+1)){
       const key=dateKey(d);
       if(!map[key])map[key]=[];
@@ -742,7 +743,7 @@ function emptyState(title,body){return`<div class="empty-state"><div class="big"
 // ── EMAIL LINKS ──
 // Tries Gmail app URL scheme first, falls back to Gmail web.
 function openEmail(id) {
-  const appUrl = "googlegmail://co?message_id=" + id;
+  const appUrl = "googlegmail://gmail/mail/u/0/#all/" + id;
   const webUrl = "https://mail.google.com/mail/u/0/#all/" + id;
   let appOpened = false;
   const onBlur = () => { appOpened = true; };
