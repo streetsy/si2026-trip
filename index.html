@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1a6b4a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Scotland &amp; Ireland 2026</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  :root {
+    --ink:        #1a2e1e;
+    --ink-mid:    #3a5c42;
+    --ink-light:  #6a9b78;
+    --paper:      #f0f7f2;
+    --paper-warm: #e2f0e8;
+    --card-bg:    #ffffff;
+    --highland:   #1a6b4a;
+    --highland-lt:#e8f5ee;
+    --ferry:      #1565c0;
+    --ferry-lt:   #e3eeff;
+    --campsite:   #2e7d32;
+    --campsite-lt:#e8f5e9;
+    --activity:   #6a1b9a;
+    --activity-lt:#f3e5f5;
+    --accommodation:#e65100;
+    --accommodation-lt:#fff3e0;
+    --other:      #546e7a;
+    --other-lt:   #eceff1;
+    --alert:      #c62828;
+    --alert-lt:   #ffebee;
+    --paid:       #1b5e20;
+    --radius:     10px;
+    --shadow:     0 2px 8px rgba(0,0,0,0.08);
+    --mono:       "JetBrains Mono","Fira Mono",monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    overscroll-behavior: none;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--highland);
+    color: #fff;
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 58px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+  .header-title { font-size: 1rem; font-weight: 600; letter-spacing: 0.02em; }
+  .header-title .flag { margin-right: 6px; }
+  .sync-status {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: rgba(255,255,255,0.8);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 5px 12px;
+    border-radius: 20px;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+  .sync-status:hover { background: rgba(255,255,255,0.15); }
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.4); flex-shrink:0; }
+  .sync-dot.online  { background: #69f0ae; }
+  .sync-dot.syncing { background: #ffd740; animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ── NAV ── */
+  nav {
+    background: #fff;
+    display: flex;
+    border-bottom: 2px solid var(--paper-warm);
+    overflow-x: auto;
+    scrollbar-width: none;
+    box-shadow: var(--shadow);
+    position: sticky;
+    top: 58px;
+    z-index: 99;
+  }
+  nav::-webkit-scrollbar { display: none; }
+  .tab {
+    padding: 13px 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--ink-light);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+    transition: color 0.2s, border-color 0.2s;
+    user-select: none;
+    margin-bottom: -2px;
+  }
+  .tab.active { color: var(--highland); border-bottom-color: var(--highland); font-weight: 700; }
+  .tab:hover:not(.active) { color: var(--ink); }
+
+  /* ── MAIN ── */
+  main { max-width: 860px; margin: 0 auto; padding: 20px 14px 80px; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ── CONFIG BANNER ── */
+  .config-banner {
+    background: linear-gradient(135deg, #1a6b4a, #1565c0);
+    color: #fff;
+    padding: 18px 20px;
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    box-shadow: var(--shadow);
+  }
+  .config-banner strong { display: block; margin-bottom: 6px; font-size: 1rem; }
+  .config-input-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .config-input-row input {
+    flex: 1; min-width: 200px; padding: 9px 14px;
+    border-radius: 8px; border: none;
+    font-size: 0.82rem; font-family: var(--mono);
+    background: rgba(255,255,255,0.2); color: #fff;
+  }
+  .config-input-row input::placeholder { color: rgba(255,255,255,0.55); }
+  .btn { padding: 9px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.82rem; font-weight: 700; transition: opacity 0.2s; }
+  .btn:hover { opacity: 0.88; }
+  .btn-primary { background: #fff; color: var(--highland); }
+  .btn-ghost   { background: rgba(255,255,255,0.2); color: #fff; }
+
+  /* ── TRIP HEADER ── */
+  .trip-header {
+    background: linear-gradient(135deg, var(--highland) 0%, #1565c0 100%);
+    color: #fff;
+    padding: 20px 22px;
+    border-radius: var(--radius);
+    margin-bottom: 18px;
+    box-shadow: var(--shadow);
+  }
+  .trip-dates { font-size: 0.72rem; opacity: 0.75; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; font-family: var(--mono); }
+  .trip-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 14px; }
+  .progress-bar-wrap { background: rgba(255,255,255,0.2); border-radius: 4px; height: 7px; }
+  .progress-bar-fill { background: #69f0ae; border-radius: 4px; height: 7px; transition: width 0.6s; }
+  .progress-label { font-size: 0.72rem; opacity: 0.8; margin-top: 7px; font-family: var(--mono); }
+
+  /* ── SUMMARY CARDS ── */
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 20px; }
+  .summary-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 16px;
+    box-shadow: var(--shadow);
+    border-top: 3px solid var(--ink-light);
+  }
+  .summary-card.ferry       { border-top-color: var(--ferry); }
+  .summary-card.campsite    { border-top-color: var(--campsite); }
+  .summary-card.activity    { border-top-color: var(--activity); }
+  .summary-card.outstanding { border-top-color: var(--alert); }
+  .summary-num { font-size: 1.7rem; font-weight: 800; line-height: 1; color: var(--ink); }
+  .summary-lbl { font-size: 0.68rem; color: var(--ink-light); margin-top: 4px; text-transform: uppercase; font-family: var(--mono); letter-spacing: 0.06em; }
+
+  /* ── SECTION TITLE ── */
+  .section-title {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-light); margin: 22px 0 10px;
+    display: flex; align-items: center; gap: 8px; font-family: var(--mono);
+  }
+  .section-title::after { content: ""; flex: 1; height: 1px; background: var(--paper-warm); }
+
+  /* ── PAYMENT ROWS ── */
+  .payment-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 11px 16px; background: var(--card-bg); border-radius: var(--radius);
+    margin-bottom: 6px; font-size: 0.85rem; gap: 10px;
+    box-shadow: var(--shadow);
+  }
+  .payment-row .amount { font-family: var(--mono); font-weight: 700; color: var(--alert); white-space: nowrap; }
+  .payment-row .due    { font-family: var(--mono); font-size: 0.7rem; color: var(--ink-light); white-space: nowrap; }
+  .payment-overdue { background: var(--alert-lt); border: 1px solid #ffcdd2; }
+
+  /* ── TIMELINE ── */
+  .day-block { margin-bottom: 5px; }
+  .day-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 16px; background: var(--card-bg);
+    border-radius: var(--radius); cursor: pointer; user-select: none;
+    box-shadow: var(--shadow); transition: background 0.15s;
+  }
+  .day-header:hover { background: var(--highland-lt); }
+  .day-num { font-family: var(--mono); font-size: 0.65rem; color: var(--ink-light); min-width: 38px; text-transform: uppercase; }
+  .day-date { font-weight: 700; font-size: 0.88rem; flex: 1; }
+  .day-preview { font-size: 0.78rem; color: var(--ink-mid); flex: 2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .day-chevron { font-size: 0.65rem; color: var(--ink-light); transition: transform 0.2s; }
+  .day-block.open .day-chevron { transform: rotate(90deg); }
+  .day-events { display: none; padding: 6px 0 2px; }
+  .day-block.open .day-events { display: block; }
+
+  .event-card {
+    display: flex; gap: 12px; padding: 12px 16px;
+    margin-bottom: 5px; border-radius: var(--radius);
+    background: var(--card-bg); border-left: 4px solid var(--ink-light);
+    font-size: 0.84rem; box-shadow: var(--shadow);
+  }
+  .event-card.Ferry         { border-left-color: var(--ferry);         background: var(--ferry-lt); }
+  .event-card.Campsite      { border-left-color: var(--campsite);      background: var(--campsite-lt); }
+  .event-card.Activity      { border-left-color: var(--activity);      background: var(--activity-lt); }
+  .event-card.Accommodation { border-left-color: var(--accommodation); background: var(--accommodation-lt); }
+  .event-icon { font-size: 1.2rem; padding-top: 1px; }
+  .event-body { flex: 1; min-width: 0; }
+  .event-title { font-weight: 700; margin-bottom: 5px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .event-meta { font-family: var(--mono); font-size: 0.7rem; color: var(--ink-mid); display: flex; flex-wrap: wrap; gap: 5px; }
+  .event-meta span { background: rgba(255,255,255,0.7); padding: 2px 7px; border-radius: 4px; }
+  .event-meta .due-chip { background: var(--alert-lt); color: var(--alert); font-weight: 700; }
+  .event-meta .paid-chip { background: #e8f5e9; color: var(--paid); }
+  .event-ref { font-family: var(--mono); font-size: 0.68rem; color: var(--ink-light); margin-top: 5px; }
+  .event-notes { font-size: 0.78rem; color: var(--ink-mid); margin-top: 5px; line-height: 1.5; }
+  .email-link {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 0.7rem; font-family: var(--mono);
+    color: var(--ink-light); text-decoration: none;
+    background: rgba(255,255,255,0.7); padding: 2px 8px;
+    border-radius: 4px; margin-top: 5px; border: 1px solid rgba(0,0,0,0.08);
+    transition: background 0.15s;
+  }
+  .email-link:hover { background: #fff; color: var(--ink); }
+
+  /* ── CALENDAR ── */
+  .cal-month-title { font-size: 1rem; font-weight: 700; margin: 18px 0 10px; color: var(--ink); }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 24px; }
+  .cal-dow { text-align: center; font-family: var(--mono); font-size: 0.62rem; color: var(--ink-light); text-transform: uppercase; padding-bottom: 5px; }
+  .cal-day {
+    background: var(--card-bg); border-radius: 8px; min-height: 62px;
+    padding: 6px 5px; font-size: 0.7rem; box-shadow: var(--shadow);
+    cursor: default; transition: box-shadow 0.15s;
+  }
+  .cal-day.has-events { cursor: pointer; }
+  .cal-day.has-events:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.14); }
+  .cal-day.empty { background: transparent; box-shadow: none; }
+  .cal-day.today { outline: 2px solid var(--highland); outline-offset: -2px; }
+  .cal-day.trip-day { background: var(--highland-lt); }
+  .cal-day-num { font-family: var(--mono); font-size: 0.65rem; color: var(--ink-light); margin-bottom: 4px; font-weight: 600; }
+  .cal-pills { display: flex; flex-direction: column; gap: 2px; }
+  .cal-pill {
+    display: flex; align-items: center; gap: 3px;
+    font-size: 0.6rem; font-weight: 600;
+    padding: 2px 5px; border-radius: 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    line-height: 1.3;
+  }
+  .cal-pill.Ferry         { background: var(--ferry-lt);         color: var(--ferry); }
+  .cal-pill.Campsite      { background: var(--campsite-lt);      color: var(--campsite); }
+  .cal-pill.Activity      { background: var(--activity-lt);      color: var(--activity); }
+  .cal-pill.Accommodation { background: var(--accommodation-lt); color: var(--accommodation); }
+  .cal-pill.Other         { background: var(--other-lt);         color: var(--other); }
+  .cal-pill-icon { flex-shrink: 0; font-size: 0.65rem; }
+
+  /* ── BOOKINGS ── */
+  .filter-row { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+  .filter-btn {
+    padding: 6px 14px; border-radius: 20px;
+    border: 1.5px solid var(--paper-warm);
+    background: var(--card-bg); font-size: 0.75rem;
+    cursor: pointer; font-weight: 500; transition: all 0.15s;
+    box-shadow: var(--shadow);
+  }
+  .filter-btn.active, .filter-btn:hover { background: var(--highland); color: #fff; border-color: var(--highland); }
+
+  .booking-card {
+    background: var(--card-bg); border-radius: var(--radius);
+    padding: 14px 18px; margin-bottom: 10px;
+    border-left: 4px solid var(--ink-light);
+    box-shadow: var(--shadow);
+    display: grid; grid-template-columns: 1fr auto; gap: 6px 16px;
+    font-size: 0.84rem;
+  }
+  .booking-card.Ferry         { border-left-color: var(--ferry); }
+  .booking-card.Campsite      { border-left-color: var(--campsite); }
+  .booking-card.Activity      { border-left-color: var(--activity); }
+  .booking-card.Accommodation { border-left-color: var(--accommodation); }
+  .booking-provider { font-weight: 700; font-size: 0.92rem; }
+  .booking-dates { font-family: var(--mono); font-size: 0.72rem; color: var(--ink-mid); }
+  .booking-amounts { font-family: var(--mono); font-size: 0.78rem; text-align: right; }
+  .booking-amounts .paid { color: var(--paid); font-weight: 600; }
+  .booking-amounts .due  { color: var(--alert); font-weight: 700; }
+  .booking-ref { font-family: var(--mono); font-size: 0.68rem; color: var(--ink-light); grid-column: 1 / -1; }
+
+  /* ── TYPE BADGE ── */
+  .type-badge {
+    display: inline-block; font-size: 0.62rem; text-transform: uppercase;
+    letter-spacing: 0.05em; padding: 2px 8px; border-radius: 4px; font-weight: 700;
+  }
+  .type-badge.Ferry         { background: var(--ferry-lt);         color: var(--ferry); }
+  .type-badge.Campsite      { background: var(--campsite-lt);      color: var(--campsite); }
+  .type-badge.Activity      { background: var(--activity-lt);      color: var(--activity); }
+  .type-badge.Accommodation { background: var(--accommodation-lt); color: var(--accommodation); }
+  .type-badge.Other         { background: var(--other-lt);         color: var(--other); }
+
+  /* ── LEGEND ── */
+  .legend { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.72rem; color: var(--ink-mid); font-weight: 500; }
+  .legend-swatch { width: 12px; height: 12px; border-radius: 3px; }
+
+  /* ── EMPTY / TOAST ── */
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--ink-light); }
+  .empty-state .big { font-size: 2.5rem; margin-bottom: 12px; }
+  .empty-state p { font-size: 0.9rem; line-height: 1.7; max-width: 340px; margin: 8px auto 0; }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--ink); color: #fff;
+    padding: 11px 22px; border-radius: 24px;
+    font-size: 0.82rem; transition: transform 0.3s;
+    z-index: 999; white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 480px) {
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    .day-preview { display: none; }
+    header { padding: 0 12px; }
+    main { padding: 14px 10px 80px; }
+    .cal-pill { font-size: 0.55rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-title"><span class="flag">⛰️</span> Scotland &amp; Ireland 2026</div>
+  <div class="sync-status" onclick="syncData()" title="Tap to refresh">
+    <div class="sync-dot" id="syncDot"></div>
+    <span id="syncLabel">Tap to load</span>
+  </div>
+</header>
+
+<nav>
+  <div class="tab active" onclick="switchTab('overview')">Overview</div>
+  <div class="tab" onclick="switchTab('timeline')">Day by Day</div>
+  <div class="tab" onclick="switchTab('calendar')">Calendar</div>
+  <div class="tab" onclick="switchTab('bookings')">All Bookings</div>
+</nav>
+
+<main>
+  <div class="config-banner" id="configBanner">
+    <strong>⚙️ Connect your Google Sheet</strong>
+    Paste the published CSV URL from your Google Sheet (File → Share → Publish to web → Bookings tab → CSV).
+    <div class="config-input-row">
+      <input type="url" id="csvUrlInput" placeholder="https://docs.google.com/spreadsheets/d/…/pub?gid=0&single=true&output=csv" />
+      <button class="btn btn-primary" onclick="saveConfig()">Save &amp; Load</button>
+      <button class="btn btn-ghost" onclick="loadDemoData()">Load demo</button>
+    </div>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div class="view active" id="view-overview">
+    <div class="trip-header">
+      <div class="trip-dates">23 July — 18 August 2026 · 26 nights</div>
+      <div class="trip-title">Spain → Scotland → Belfast 🏴󠁧󠁢󠁳󠁣󠁴󠁿 🇮🇪</div>
+      <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressBar" style="width:0%"></div></div>
+      <div class="progress-label" id="progressLabel">Trip hasn't started yet</div>
+    </div>
+    <div class="summary-grid" id="summaryGrid"></div>
+    <div class="section-title">Upcoming payments</div>
+    <div id="paymentsContainer"></div>
+  </div>
+
+  <!-- TIMELINE -->
+  <div class="view" id="view-timeline">
+    <div id="timelineContainer"></div>
+  </div>
+
+  <!-- CALENDAR -->
+  <div class="view" id="view-calendar">
+    <div class="legend">
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--ferry-lt);border:1.5px solid var(--ferry)"></div>Ferry</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--campsite-lt);border:1.5px solid var(--campsite)"></div>Campsite</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--activity-lt);border:1.5px solid var(--activity)"></div>Activity</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--accommodation-lt);border:1.5px solid var(--accommodation)"></div>Accommodation</div>
+    </div>
+    <p style="font-size:0.78rem;color:var(--ink-light);margin-bottom:14px">Tap any day with bookings to jump to it in Day by Day view.</p>
+    <div id="calendarContainer"></div>
+  </div>
+
+  <!-- BOOKINGS -->
+  <div class="view" id="view-bookings">
+    <div class="filter-row">
+      <span style="font-size:0.75rem;color:var(--ink-light);font-weight:500">Filter:</span>
+      <button class="filter-btn active" onclick="filterBookings('All',this)">All</button>
+      <button class="filter-btn" onclick="filterBookings('Ferry',this)">⛴ Ferry</button>
+      <button class="filter-btn" onclick="filterBookings('Campsite',this)">⛺ Campsite</button>
+      <button class="filter-btn" onclick="filterBookings('Activity',this)">🎯 Activity</button>
+      <button class="filter-btn" onclick="filterBookings('Accommodation',this)">🏠 Accom.</button>
+    </div>
+    <div id="bookingsContainer"></div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const TRIP_START = new Date("2026-07-23");
+const TRIP_END   = new Date("2026-08-18");
+const STORAGE_KEY_URL  = "si2026_csvUrl";
+const STORAGE_KEY_DATA = "si2026_data";
+const STORAGE_KEY_TS   = "si2026_timestamp";
+const TYPE_ICONS = { Ferry:"⛴", Campsite:"⛺", Activity:"🎯", Accommodation:"🏠", Other:"📋" };
+
+let bookings = [];
+let currentFilter = "All";
+
+// ── INIT ──
+window.addEventListener("DOMContentLoaded", () => {
+  const savedUrl = localStorage.getItem(STORAGE_KEY_URL);
+  if (savedUrl) {
+    document.getElementById("csvUrlInput").value = savedUrl;
+    document.getElementById("configBanner").style.display = "none";
+    loadCachedThenSync(savedUrl);
+  } else {
+    updateSyncStatus("idle","Not configured");
+  }
+  updateProgress();
+});
+window.addEventListener("online",  () => showToast("📶 Back online"));
+window.addEventListener("offline", () => showToast("📵 Offline — cached data shown"));
+
+// ── CONFIG ──
+function saveConfig() {
+  const url = document.getElementById("csvUrlInput").value.trim();
+  if (!url || !url.includes("docs.google.com")) { showToast("⚠️ Paste a valid Google Sheets CSV URL"); return; }
+  localStorage.setItem(STORAGE_KEY_URL, url);
+  document.getElementById("configBanner").style.display = "none";
+  syncData();
+}
+
+// ── DATA ──
+function loadCachedThenSync(url) {
+  const cached = localStorage.getItem(STORAGE_KEY_DATA);
+  const ts     = localStorage.getItem(STORAGE_KEY_TS);
+  if (cached) {
+    bookings = JSON.parse(cached);
+    renderAll();
+    updateSyncStatus("online", `Cached · ${ts ? timeSince(new Date(ts)) : "?"} ago`);
+    if (navigator.onLine) syncData();
+  } else { syncData(); }
+}
+
+async function syncData() {
+  const url = localStorage.getItem(STORAGE_KEY_URL);
+  if (!url) { showToast("Set up your Sheet URL first"); return; }
+  updateSyncStatus("syncing","Syncing…");
+  try {
+    const resp = await fetch(url + "&cachebust=" + Date.now());
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const text = await resp.text();
+    bookings = parseCSV(text);
+    localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(bookings));
+    localStorage.setItem(STORAGE_KEY_TS,   new Date().toISOString());
+    renderAll();
+    updateSyncStatus("online","Synced · just now");
+    showToast(`✅ Loaded ${bookings.length} bookings`);
+  } catch(e) {
+    updateSyncStatus("idle", navigator.onLine ? "Sync failed" : "Offline");
+    showToast(navigator.onLine ? `❌ Sync failed: ${e.message}` : "📵 Offline — cached data shown");
+    const cached = localStorage.getItem(STORAGE_KEY_DATA);
+    if (cached && bookings.length === 0) { bookings = JSON.parse(cached); renderAll(); }
+  }
+}
+
+// ── CSV ──
+function parseCSV(text) {
+  const lines = text.trim().split("\n").filter(Boolean);
+  if (lines.length < 2) return [];
+  const headers = parseLine(lines[0]);
+  return lines.slice(1).map(line => {
+    const vals = parseLine(line);
+    const o = {};
+    headers.forEach((h,i) => o[h.trim()] = (vals[i]||"").trim());
+    return {
+      id:           o["Email ID"]          || "",
+      type:         o["Type"]              || "Other",
+      provider:     o["Provider"]          || "Unknown",
+      ref:          o["Booking Ref"]       || "",
+      dateFrom:     o["Date From"]         || "",
+      dateTo:       o["Date To"]           || "",
+      checkin:      o["Check-in Time"]     || "",
+      checkout:     o["Check-out Time"]    || "",
+      locationFrom: o["Location From"]     || "",
+      locationTo:   o["Location To"]       || "",
+      amountPaid:   parseFloat(o["Amount Paid (£)"])  || 0,
+      amountDue:    parseFloat(o["Amount Due (£)"])   || 0,
+      paymentDue:   o["Payment Due Date"]  || "",
+      notes:        o["Notes"]             || "",
+      subject:      o["Email Subject"]     || "",
+    };
+  });
+}
+function parseLine(line) {
+  const r=[]; let c="",q=false;
+  for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'){if(q&&line[i+1]==='"'){c+='"';i++;}else q=!q;}else if(ch===','&&!q){r.push(c);c="";}else c+=ch;}
+  r.push(c); return r;
+}
+
+// ── RENDER ALL ──
+function renderAll() { renderOverview(); renderTimeline(); renderCalendar(); renderBookings(); }
+
+// ── OVERVIEW ──
+function renderOverview() {
+  updateProgress();
+  const ferries   = bookings.filter(b=>b.type==="Ferry").length;
+  const camps     = bookings.filter(b=>b.type==="Campsite").length;
+  const acts      = bookings.filter(b=>b.type==="Activity").length;
+  const owing     = bookings.filter(b=>b.amountDue>0);
+  const totalDue  = owing.reduce((s,b)=>s+b.amountDue,0);
+  document.getElementById("summaryGrid").innerHTML = `
+    <div class="summary-card ferry"><div class="summary-num">${ferries}</div><div class="summary-lbl">Ferries</div></div>
+    <div class="summary-card campsite"><div class="summary-num">${camps}</div><div class="summary-lbl">Campsites</div></div>
+    <div class="summary-card activity"><div class="summary-num">${acts}</div><div class="summary-lbl">Activities</div></div>
+    <div class="summary-card outstanding"><div class="summary-num">£${totalDue.toFixed(0)}</div><div class="summary-lbl">Still to pay</div></div>
+    <div class="summary-card"><div class="summary-num">${bookings.length}</div><div class="summary-lbl">Total bookings</div></div>`;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const payments = bookings.filter(b=>b.amountDue>0&&b.paymentDue).sort((a,b)=>new Date(a.paymentDue)-new Date(b.paymentDue));
+  document.getElementById("paymentsContainer").innerHTML = payments.length===0
+    ? `<p style="font-size:0.85rem;color:var(--ink-light);padding:8px 0">No upcoming payments — all clear! ✅</p>`
+    : payments.map(b=>{
+        const due=new Date(b.paymentDue), over=due<today;
+        return `<div class="payment-row${over?" payment-overdue":""}">
+          <span>${over?"🚨 ":""}${b.provider}</span>
+          <span class="amount">£${b.amountDue.toFixed(2)}</span>
+          <span class="due">${over?"OVERDUE · ":""}due ${fmtDate(b.paymentDue)}</span>
+        </div>`;
+      }).join("");
+}
+
+function updateProgress() {
+  const now=new Date();now.setHours(0,0,0,0);
+  const start=new Date(TRIP_START),end=new Date(TRIP_END);
+  const pct=Math.min(100,Math.max(0,((now-start)/(end-start))*100));
+  document.getElementById("progressBar").style.width=pct+"%";
+  if(now<start){const d=Math.round((start-now)/86400000);document.getElementById("progressLabel").textContent=`Starts in ${d} day${d!==1?"s":""}`;}
+  else if(now>end){document.getElementById("progressLabel").textContent="Trip complete 🎉";}
+  else{document.getElementById("progressLabel").textContent=`Day ${Math.round((now-start)/86400000)+1} of 27`;}
+}
+
+// ── TIMELINE ──
+function renderTimeline() {
+  const container=document.getElementById("timelineContainer");
+  const days=buildDayMap();
+  if(bookings.length===0){container.innerHTML=emptyState("No bookings yet","Connect your Google Sheet to see your itinerary.");return;}
+  let html="",dayNum=0;
+  for(let d=new Date(TRIP_START);d<=TRIP_END;d.setDate(d.getDate()+1)){
+    dayNum++;
+    const key=dateKey(d);
+    const events=days[key]||[];
+    const dow=d.toLocaleDateString("en-GB",{weekday:"short"}).toUpperCase();
+    const dateStr=d.toLocaleDateString("en-GB",{day:"numeric",month:"short"});
+    const preview=events.map(e=>e.provider).join(", ")||"Travel day";
+    html+=`<div class="day-block" id="day-${key}">
+      <div class="day-header" onclick="toggleDay('day-${key}')">
+        <span class="day-num">${dow} · D${dayNum}</span>
+        <span class="day-date">${dateStr}</span>
+        <span class="day-preview">${preview}</span>
+        <span class="day-chevron">▶</span>
+      </div>
+      <div class="day-events">
+        ${events.length===0
+          ? `<div style="padding:10px 16px;font-size:0.82rem;color:var(--ink-light)">🚐 Travel day — no bookings</div>`
+          : events.map(e=>`
+            <div class="event-card ${e.type}">
+              <span class="event-icon">${TYPE_ICONS[e.type]||"📋"}</span>
+              <div class="event-body">
+                <div class="event-title">
+                  ${e.provider}
+                  <span class="type-badge ${e.type}">${e.type}</span>
+                </div>
+                <div class="event-meta">
+                  ${e.checkin  ? `<span>🕐 In ${e.checkin}</span>`:""}
+                  ${e.checkout ? `<span>🕐 Out ${e.checkout}</span>`:""}
+                  ${e.locationFrom ? `<span>📍 From ${e.locationFrom}</span>`:""}
+                  ${e.locationTo   ? `<span>📍 To ${e.locationTo}</span>`:""}
+                  ${e.amountPaid>0 ? `<span class="paid-chip">✅ Paid £${e.amountPaid.toFixed(2)}</span>`:""}
+                  ${e.amountDue>0  ? `<span class="due-chip">⚠️ Due £${e.amountDue.toFixed(2)}</span>`:""}
+                </div>
+                ${e.notes?`<div class="event-notes">${e.notes}</div>`:""}
+                ${e.ref?`<div class="event-ref">Ref: ${e.ref}</div>`:""}
+                ${e.id?`<a class="email-link" href="#" onclick="openEmail('${e.id}');return false;">✉️ View email</a>`:""}
+              </div>
+            </div>`).join("")}
+      </div>
+    </div>`;
+  }
+  container.innerHTML=html;
+  const today=new Date();today.setHours(0,0,0,0);
+  if(today>=TRIP_START&&today<=TRIP_END){
+    const el=document.getElementById("day-"+dateKey(today));
+    if(el){el.classList.add("open");el.scrollIntoView({behavior:"smooth",block:"start"});}
+  }
+}
+
+function toggleDay(id){document.getElementById(id)?.classList.toggle("open");}
+
+function buildDayMap(){
+  const map={};
+  for(const b of bookings){
+    if(!b.dateFrom) continue;
+    const from=new Date(b.dateFrom);
+    const to=b.dateTo?new Date(b.dateTo):new Date(b.dateFrom);
+    for(let d=new Date(from);d<=to;d.setDate(d.getDate()+1)){
+      const key=dateKey(d);
+      if(!map[key])map[key]=[];
+      if(dateKey(d)===dateKey(from)||!map[dateKey(from)])map[key].push(b);
+    }
+  }
+  return map;
+}
+
+// ── CALENDAR ──
+function renderCalendar(){
+  const container=document.getElementById("calendarContainer");
+  const dayMap=buildDayMap();
+  const months=[6,7]; const year=2026;
+  const DOW=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  let html="";
+  for(const month of months){
+    const monthName=new Date(year,month,1).toLocaleDateString("en-GB",{month:"long",year:"numeric"});
+    html+=`<div class="cal-month-title">${monthName}</div><div class="cal-grid">`;
+    DOW.forEach(d=>{html+=`<div class="cal-dow">${d}</div>`;});
+    const firstDay=new Date(year,month,1).getDay();
+    for(let i=0;i<firstDay;i++)html+=`<div class="cal-day empty"></div>`;
+    const daysInMonth=new Date(year,month+1,0).getDate();
+    const today=new Date();today.setHours(0,0,0,0);
+    for(let day=1;day<=daysInMonth;day++){
+      const d=new Date(year,month,day);
+      const key=dateKey(d);
+      const events=dayMap[key]||[];
+      const isToday=d.getTime()===today.getTime();
+      const isTripDay=d>=TRIP_START&&d<=TRIP_END;
+      const hasEvents=events.length>0;
+      // Build pills — max 3 shown
+      const pills=events.slice(0,3).map(e=>{
+        const label=e.provider.length>12?e.provider.slice(0,11)+"…":e.provider;
+        return `<div class="cal-pill ${e.type}"><span class="cal-pill-icon">${TYPE_ICONS[e.type]||"📋"}</span>${label}</div>`;
+      }).join("");
+      const clickAttr=hasEvents?`onclick="calDayClick('${key}')" title="Go to ${d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})}"` :"";
+      html+=`<div class="cal-day${isToday?" today":""}${isTripDay?" trip-day":""}${hasEvents?" has-events":""}" ${clickAttr}>
+        <div class="cal-day-num">${day}</div>
+        <div class="cal-pills">${pills}</div>
+      </div>`;
+    }
+    html+=`</div>`;
+  }
+  container.innerHTML=html;
+}
+
+function calDayClick(key){
+  switchTab("timeline");
+  setTimeout(()=>{
+    const el=document.getElementById("day-"+key);
+    if(el){el.classList.add("open");el.scrollIntoView({behavior:"smooth",block:"start"});}
+  },80);
+}
+
+// ── BOOKINGS ──
+function renderBookings(){
+  const container=document.getElementById("bookingsContainer");
+  const filtered=currentFilter==="All"?bookings:bookings.filter(b=>b.type===currentFilter);
+  const sorted=[...filtered].sort((a,b)=>(a.dateFrom||"").localeCompare(b.dateFrom||""));
+  if(sorted.length===0){container.innerHTML=emptyState("No bookings",currentFilter==="All"?"Connect your Google Sheet to see bookings.":`No ${currentFilter} bookings yet.`);return;}
+  container.innerHTML=sorted.map(b=>`
+    <div class="booking-card ${b.type}">
+      <div>
+        <span class="type-badge ${b.type}">${TYPE_ICONS[b.type]||"📋"} ${b.type}</span>
+        <span class="booking-provider" style="margin-left:8px">${b.provider}</span>
+      </div>
+      <div class="booking-amounts">
+        ${b.amountPaid>0?`<div class="paid">£${b.amountPaid.toFixed(2)} paid</div>`:""}
+        ${b.amountDue>0 ?`<div class="due">£${b.amountDue.toFixed(2)} due</div>`:""}
+      </div>
+      <div class="booking-dates">
+        ${fmtDate(b.dateFrom)}${b.dateTo&&b.dateTo!==b.dateFrom?` → ${fmtDate(b.dateTo)}`:""}
+        ${b.checkin?` · in ${b.checkin}`:""}${b.checkout?` / out ${b.checkout}`:""}
+        ${b.locationFrom||b.locationTo?`<br>${b.locationFrom||""}${b.locationTo?` → ${b.locationTo}`:""}`:""}
+      </div>
+      ${b.ref?`<div class="booking-ref">Ref: ${b.ref}</div>`:""}
+      ${b.notes?`<div style="font-size:0.78rem;color:var(--ink-mid);margin-top:5px;grid-column:1/-1">${b.notes}</div>`:""}
+      ${b.id?`<div style="grid-column:1/-1"><a class="email-link" href="#" onclick="openEmail('${b.id}');return false;">✉️ View original email</a></div>`:""}
+    </div>`).join("");
+}
+
+function filterBookings(type,btn){
+  currentFilter=type;
+  document.querySelectorAll(".filter-btn").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  renderBookings();
+}
+
+// ── TABS ──
+function switchTab(name){
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+  document.getElementById("view-"+name).classList.add("active");
+  const tabMap={overview:0,timeline:1,calendar:2,bookings:3};
+  document.querySelectorAll(".tab")[tabMap[name]]?.classList.add("active");
+}
+
+// ── DEMO DATA ──
+function loadDemoData(){
+  bookings=[
+    {id:"19ed697635197e45",type:"Ferry",provider:"Brittany Ferries",ref:"XD58583",dateFrom:"2026-07-23",dateTo:"2026-07-24",checkin:"09:30",checkout:"",locationFrom:"Santander",locationTo:"Plymouth",amountPaid:1134.40,amountDue:0,paymentDue:"",notes:"Departure 16:00, arrival 11:15. Cabin with pets.",subject:"Su billete actualizado para la reserva XD58583"},
+    {id:"19ed68e37ec3a138",type:"Campsite",provider:"Ferry View",ref:"WTB1A918A0",dateFrom:"2026-07-27",dateTo:"2026-07-27",checkin:"13:00",checkout:"12:00",locationFrom:"",locationTo:"Gills Bay, Caithness",amountPaid:0,amountDue:30,paymentDue:"2026-07-27",notes:"Motorhome pitch EHU. Cash preferred.",subject:"Message from Ferry View ref WTB1A918A0"},
+    {id:"19ed6365ab9ba597",type:"Ferry",provider:"Pentland Ferries",ref:"47271088",dateFrom:"2026-07-28",dateTo:"2026-07-28",checkin:"12:30",checkout:"",locationFrom:"Gills Bay",locationTo:"St Margaret's Hope",amountPaid:123,amountDue:0,paymentDue:"",notes:"2 adults + Motorhome. Depart 13:30, arrive 14:40.",subject:"Booking Confirmation"},
+    {id:"19eb833e452d9fe2",type:"Campsite",provider:"Fortrose Bay Campsite",ref:"10732163",dateFrom:"2026-07-25",dateTo:"2026-07-26",checkin:"14:00",checkout:"12:00",locationFrom:"",locationTo:"Fortrose, Ross-Shire",amountPaid:35,amountDue:0,paymentDue:"",notes:"Hard standing pitch, 2 adults, 2 pets, electricity.",subject:"Booking Confirmation"},
+    {id:"19eb61a7b0df8fc0",type:"Campsite",provider:"Sango Sands Oasis",ref:"WTB1A850D6",dateFrom:"2026-08-01",dateTo:"2026-08-02",checkin:"",checkout:"",locationFrom:"",locationTo:"Durness",amountPaid:35,amountDue:35,paymentDue:"2026-07-20",notes:"Touring pitch with electricity. £35/night.",subject:"Booking Details - Sango Sands Oasis"},
+    {id:"19ed697635197e46",type:"Ferry",provider:"NorthLink Ferries",ref:"3964433",dateFrom:"2026-08-10",dateTo:"2026-08-10",checkin:"16:45",checkout:"",locationFrom:"Stromness",locationTo:"Scrabster",amountPaid:117.90,amountDue:0,paymentDue:"",notes:"Hamnavoe. 2 adults + motorhome + dog lounge.",subject:"Confirmation - 3964433"},
+    {id:"19eb39b6fe7b276a",type:"Ferry",provider:"P&O Ferries",ref:"POO97N2TUZ6QM",dateFrom:"2026-08-18",dateTo:"2026-08-18",checkin:"16:00",checkout:"18:00",locationFrom:"Cairnryan",locationTo:"Larne",amountPaid:204,amountDue:0,paymentDue:"",notes:"Flexi product. Motorhome + 2 adults + 2 pets.",subject:"Your P&O Ferries Booking Confirmation"},
+  ];
+  localStorage.setItem(STORAGE_KEY_DATA,JSON.stringify(bookings));
+  document.getElementById("configBanner").style.display="none";
+  renderAll();
+  showToast("📍 Demo data loaded");
+}
+
+// ── UTILS ──
+function dateKey(d){return d.toISOString().slice(0,10);}
+function fmtDate(s){if(!s)return"";const d=new Date(s+"T12:00:00");return isNaN(d)?s:d.toLocaleDateString("en-GB",{day:"numeric",month:"short"});}
+function timeSince(date){const s=Math.floor((new Date()-date)/1000);if(s<60)return s+"s";if(s<3600)return Math.floor(s/60)+"m";return Math.floor(s/3600)+"h";}
+function showToast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),3200);}
+function updateSyncStatus(state,label){document.getElementById("syncDot").className="sync-dot "+state;document.getElementById("syncLabel").textContent=label;}
+function emptyState(title,body){return`<div class="empty-state"><div class="big">🗺️</div><strong>${title}</strong><p>${body}</p></div>`;}
+
+// ── EMAIL LINKS ──
+// Tries Gmail app URL scheme first, falls back to Gmail web.
+function openEmail(id) {
+  const appUrl = "googlegmail://co?message_id=" + id;
+  const webUrl = "https://mail.google.com/mail/u/0/#all/" + id;
+  let appOpened = false;
+  const onBlur = () => { appOpened = true; };
+  window.addEventListener("blur", onBlur, { once: true });
+  window.location.href = appUrl;
+  setTimeout(() => {
+    window.removeEventListener("blur", onBlur);
+    if (!appOpened) window.open(webUrl, "_blank", "noopener");
+  }, 800);
+}
+
+if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(e=>console.warn("SW:",e));}
+</script>
+</body>
+</html>
