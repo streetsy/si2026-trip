@@ -644,11 +644,19 @@ function buildDayMap(){
   for(const b of bookings){
     if(!b.dateFrom) continue;
     const from=parseLocalDate(b.dateFrom);
-    const to=b.dateTo?parseLocalDate(b.dateTo):parseLocalDate(b.dateFrom);if(!from||!to)continue;
-    for(let d=new Date(from);d<=to;d.setDate(d.getDate()+1)){
+    const to=b.dateTo?parseLocalDate(b.dateTo):parseLocalDate(b.dateFrom);
+    if(!from||!to) continue;
+
+    // Date To for campsites/accommodation is checkout, not another night.
+    const lastDay=new Date(to);
+    const isOvernightStay=(b.type==="Campsite"||b.type==="Accommodation")
+      && dateKey(to)!==dateKey(from);
+    if(isOvernightStay) lastDay.setDate(lastDay.getDate()-1);
+
+    for(let d=new Date(from);d<=lastDay;d.setDate(d.getDate()+1)){
       const key=dateKey(d);
-      if(!map[key])map[key]=[];
-      if(dateKey(d)===dateKey(from)||!map[dateKey(from)])map[key].push(b);
+      if(!map[key]) map[key]=[];
+      map[key].push(b);
     }
   }
   return map;
