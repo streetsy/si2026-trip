@@ -1,76 +1,65 @@
-// ============================================================
-// SERVICE WORKER — Scotland & Ireland 2026 Trip Planner
-// Caches the app shell for offline use.
-// ============================================================
+// Scotland & Ireland 2026 Trip Planner service worker.
+// Caches the app shell and Firebase SDKs for offline use.
 
-const CACHE_NAME = "si2026-v3";
+const CACHE_NAME = "si2026-v4";
 const SHELL_FILES = [
   "./",
   "./index.html",
   "./manifest.json",
+  "./notes.js",
+  "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js",
+  "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js",
+  "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js",
 ];
 
-// Install — cache app shell
 self.addEventListener("install", event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL_FILES))
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL_FILES)));
   self.skipWaiting();
 });
 
-// Activate — delete old caches
 self.addEventListener("activate", event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+      Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key)))
     )
   );
   self.clients.claim();
 });
 
-// Fetch strategy:
-// - App shell files → Cache first
-// - Google Sheets CSV → Network first, fall back to cache
-// - Everything else → Network first
 self.addEventListener("fetch", event => {
   const url = event.request.url;
 
-  // Google Sheets CSV — network first, cache as backup
+  // Let Firestore and Firebase authentication manage their own offline state.
+  if (
+    url.includes("firestore.googleapis.com") ||
+    url.includes("firebase.googleapis.com") ||
+    url.includes("identitytoolkit.googleapis.com") ||
+    url.includes("securetoken.googleapis.com") ||
+    url.includes("firebaseio.com")
+  ) return;
+
+  // The published Google Sheet is always refreshed first, then cached.
   if (url.includes("docs.google.com") && url.includes("output=csv")) {
     event.respondWith(
       fetch(event.request)
-        .then(resp => {
-          const clone = resp.clone();
-          caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
-          return resp;
+        .then(response => {
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, response.clone()));
+          return response;
         })
         .catch(() => caches.match(event.request))
     );
     return;
   }
-// App shell — network first so a GitHub Pages deploy reaches installed PWAs.
-// (The old './' endsWith check matched every URL and kept index.html stale.)
-const requestUrl = new URL(url);
-const isAppShell = requestUrl.origin === self.location.origin && (
-  requestUrl.pathname.endsWith("/") ||
-  requestUrl.pathname.endsWith("/index.html") ||
-  requestUrl.pathname.endsWith("/manifest.json")
- );
- if (isAppShell) {
-    event.respondWith(
-fetch(event.request)
-    .then(resp => {
-     const clone = resp.clone();
-     caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
-     return resp;
-    })
-    .catch(() => caches.match(event.request))
-    );
-    return;
-  }
 
-  // Default — network first
+  // Always prefer a new deployment when online, with an offline fallback.
   event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request))
+    fetch(event.request)
+      .then(response => {
+        if (event.request.method === "GET") {
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, response.clone()));
+        }
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
