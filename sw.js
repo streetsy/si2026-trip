@@ -3,7 +3,7 @@
 // Caches the app shell for offline use.
 // ============================================================
 
-const CACHE_NAME = "si2026-v2";
+const CACHE_NAME = "si2026-v3";
 const SHELL_FILES = [
   "./",
   "./index.html",
@@ -48,11 +48,23 @@ self.addEventListener("fetch", event => {
     );
     return;
   }
-
-  // App shell — cache first
-  if (SHELL_FILES.some(f => url.endsWith(f.replace("./", "")))) {
+// App shell — network first so a GitHub Pages deploy reaches installed PWAs.
+// (The old './' endsWith check matched every URL and kept index.html stale.)
+const requestUrl = new URL(url);
+const isAppShell = requestUrl.origin === self.location.origin && (
+  requestUrl.pathname.endsWith("/") ||
+  requestUrl.pathname.endsWith("/index.html") ||
+  requestUrl.pathname.endsWith("/manifest.json")
+ );
+ if (isAppShell) {
     event.respondWith(
-      caches.match(event.request).then(cached => cached || fetch(event.request))
+fetch(event.request)
+    .then(resp => {
+     const clone = resp.clone();
+     caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
+     return resp;
+    })
+    .catch(() => caches.match(event.request))
     );
     return;
   }
