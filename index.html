@@ -367,6 +367,7 @@
   <div class="tab" onclick="switchTab('timeline')">Day by Day</div>
   <div class="tab" onclick="switchTab('calendar')">Calendar</div>
   <div class="tab" onclick="switchTab('bookings')">All Bookings</div>
+  <div class="tab" data-tab="notes" onclick="switchTab('notes')">Notes</div>
 </nav>
 
 <main>
@@ -422,6 +423,14 @@
     </div>
     <div id="bookingsContainer"></div>
   </div>
+  <div class="view" id="view-notes">
+  <div class="notes-toolbar">
+    <p>Shared offline notes for possible overnight stops, pubs, aires, parking and backup plans.</p>
+    <button class="notes-add" onclick="tripNotesAdd()">＋ Add note</button>
+  </div>
+  <div class="notes-status" id="notesSyncStatus">Connecting to shared notes…</div>
+  <div id="tripNotesContainer"></div>
+</div>
 </main>
 
 <div class="toast" id="toast"></div>
@@ -690,7 +699,7 @@ function renderCalendar(){
         return `<div class="cal-pill ${e.type}"><span class="cal-pill-icon">${TYPE_ICONS[e.type]||"📋"}</span>${label}</div>`;
       }).join("");
       const clickAttr=hasEvents?`onclick="calDayClick('${key}')" title="Go to ${d.toLocaleDateString('en-GB',{day:'numeric',month:'short'})}"` :"";
-      html+=`<div class="cal-day${isToday?" today":""}${isTripDay?" trip-day":""}${hasEvents?" has-events":""}" ${clickAttr}>
+      html+=`<div class="cal-day${isToday?" today":""}${isTripDay?" trip-day":""}${hasEvents?" has-events":""}" data-date="${key}" ${clickAttr}>
         <div class="cal-day-num">${day}</div>
         <div class="cal-pills">${pills}</div>
       </div>`;
@@ -806,5 +815,9 @@ function openEmail(gmailId, messageId) {
 
 if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(e=>console.warn("SW:",e));}
 </script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="notes.js"></script>
 </body>
 </html>
